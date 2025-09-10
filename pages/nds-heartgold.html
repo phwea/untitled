@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="../assets/style.css" />
   <style>
-    /* ===== Page Vibe (keeps your global CSS, adds aurora + glass HUD) ===== */
     html,body{height:100%;margin:0;background:#000}
     .scene{position:relative;min-height:100vh;overflow:hidden}
     .aurora, .aurora:before, .aurora:after{
@@ -16,59 +15,28 @@
                  radial-gradient(50% 30% at 80% 0%, #ffd16644, transparent 60%);
       filter:blur(30px) saturate(120%);
       animation:float 16s ease-in-out infinite alternate;
-      content:"";
-      pointer-events:none;
+      content:""; pointer-events:none;
     }
     .aurora:before{animation-delay: -8s; transform:scaleX(-1)}
     .aurora:after{animation-delay: -4s; opacity:.7}
     @keyframes float{to{transform:translate3d(20px,10px,0)}}
 
-    /* Emulator stage */
-    #stage{
-      height:100vh; background:#000;
-      image-rendering:pixelated; /* crisper pixels */
-      outline:1px solid #101826;
-    }
+    #stage{height:100vh;background:#000;image-rendering:pixelated;outline:1px solid #101826}
 
-    /* HUD */
     .hud{position:fixed;top:14px;right:18px;display:flex;gap:10px;z-index:9}
     .btn{
-      background:#0e1523cc; color:#eaf0ff;
-      border:1px solid #1b2941; border-radius:12px;
-      padding:9px 12px; cursor:pointer; font-weight:700;
-      backdrop-filter:blur(6px);
-      box-shadow:0 8px 20px rgba(0,0,0,.35);
-      transition:border-color .2s, transform .12s;
+      background:#0e1523cc;color:#eaf0ff;border:1px solid #1b2941;border-radius:12px;
+      padding:9px 12px;cursor:pointer;font-weight:700;backdrop-filter:blur(6px);
+      box-shadow:0 8px 20px rgba(0,0,0,.35);transition:border-color .2s,transform .12s;
     }
     .btn:hover{border-color:#2a3d63}
     .btn:active{transform:translateY(1px)}
-    .label-btn{padding:0 12px; display:inline-flex; align-items:center}
 
-    /* Toast/status chip */
     .toast{
-      position:fixed; left:16px; bottom:16px; z-index:9;
-      background:#0e1523e6; color:#9fb3d1; border:1px solid #1b2941;
-      border-radius:12px; padding:8px 12px; font:12px/1.3 system-ui;
-      backdrop-filter:blur(6px); box-shadow:0 8px 20px rgba(0,0,0,.35);
-    }
-
-    /* Optional side nav (your existing layout) */
-    .sidebar{background:linear-gradient(180deg,#0b111d,#0b0f15)}
-    .brand{letter-spacing:.2px}
-
-    /* Drag overlay */
-    .drop{
-      position:fixed; inset:0; display:none; place-items:center; z-index:8;
-      background:rgba(122,162,255,.08);
-      border:2px dashed rgba(122,162,255,.35);
-      color:#cfe1ff; font-weight:800; font-size:18px;
-      backdrop-filter:blur(3px);
-    }
-
-    /* Mobile hint */
-    @media (max-width: 900px){
-      .hud{right:12px; top:12px}
-      .btn{padding:8px 10px}
+      position:fixed;left:16px;bottom:16px;z-index:9;
+      background:#0e1523e6;color:#9fb3d1;border:1px solid #1b2941;
+      border-radius:12px;padding:8px 12px;font:12px/1.3 system-ui;
+      backdrop-filter:blur(6px);box-shadow:0 8px 20px rgba(0,0,0,.35)
     }
   </style>
 </head>
@@ -87,91 +55,47 @@
       <div class="aurora"></div>
       <div id="stage"></div>
 
-      <!-- Glass HUD -->
       <div class="hud">
         <button class="btn" id="fsBtn">⛶ Fullscreen</button>
         <button class="btn" id="menuBtn">⚙️ Menu</button>
-        <button class="btn" id="qSave">💾 Quick Save</button>
-        <button class="btn" id="qLoad">📂 Quick Load</button>
-        <label class="btn label-btn">
-          ⬆️ Import State
-          <input type="file" accept=".state" hidden id="stateIn">
-        </label>
       </div>
 
-      <div class="drop" id="drop">Drop a .zip or .nds here…</div>
-      <div class="toast" id="toast">Tip: Use the ⚙️ Menu for save states, keybinds, and more.</div>
+      <div class="toast" id="toast">Booting HeartGold…</div>
     </div>
   </main>
 
   <script>
-    /* ===== EmulatorJS config (DS without BIOS) ===== */
+    /* ===== melonDS config ===== */
     EJS_player        = "#stage";
-    EJS_core          = "desmume";
+    EJS_core          = "melonds";
     EJS_gameName      = "Pokemon HeartGold";
     EJS_color         = "#0064ff";
     EJS_pathtodata    = "https://cdn.emulatorjs.org/stable/data/";
 
-    // 👉 ZIP keeps you under 100 MB for GitHub Pages
-    EJS_gameUrl       = "https://raw.githubusercontent.com/phwea/untitled/main/roms/heartgold.zip";
+    // Your ROM + BIOS/firmware (all on GitHub raw links)
+    EJS_gameUrl = "https://raw.githubusercontent.com/phwea/untitled/main/roms/heartgold.zip";
+    EJS_biosUrl = {
+      "bios7":   "https://raw.githubusercontent.com/phwea/untitled/main/roms/biosnds7.rom",
+      "bios9":   "https://raw.githubusercontent.com/phwea/untitled/main/roms/biosnds9.rom",
+      "firmware":"https://raw.githubusercontent.com/phwea/untitled/main/roms/firmware.bin"
+    };
     EJS_startOnLoaded = true;
 
-    // Persist saves + states in the browser too
-    EJS_defaultOptions = {
-      saveGameFromStorage: true,
-      saveStateFromStorage: true
-    };
-
-    // Download state with timestamped filename
-    EJS_onSaveState = function (arr) {
-      const blob = arr?.[1]; if (!blob) return;
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `HG_${new Date().toISOString().replace(/[:.]/g,'-')}.state`;
-      a.click();
-      setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
-      toast('State saved (downloaded).');
-    };
-
-    /* ===== UX helpers ===== */
     const fsBtn = document.getElementById('fsBtn');
     const menuBtn = document.getElementById('menuBtn');
-    const qSave = document.getElementById('qSave');
-    const qLoad = document.getElementById('qLoad');
-    const stateIn = document.getElementById('stateIn');
-    const drop = document.getElementById('drop');
     const toastEl = document.getElementById('toast');
-
-    function toast(t){
-      toastEl.textContent = t;
-      toastEl.style.opacity = 1;
-      clearTimeout(window.__t);
-      window.__t = setTimeout(()=>toastEl.style.opacity = .0, 2600);
-    }
 
     fsBtn.onclick   = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
     menuBtn.onclick = () => window.EJS_emulator?.toggleMenu?.();
-    qSave.onclick   = () => window.EJS_saveState?.();
-    qLoad.onclick   = () => window.EJS_loadState?.();
-    stateIn.onchange = e => {
-      const f = e.target.files?.[0];
-      if (f) { window.EJS_uploadSaveState?.(f); toast('State imported.'); }
-      e.target.value = "";
-    };
 
-    // Drag & drop a ROM/ZIP to override (handy for testing)
-    addEventListener('dragenter', e=>{ e.preventDefault(); drop.style.display='grid'; });
-    addEventListener('dragover',  e=>{ e.preventDefault(); });
-    addEventListener('dragleave', e=>{ e.preventDefault(); drop.style.display='none'; });
-    addEventListener('drop', e=>{
-      e.preventDefault(); drop.style.display='none';
-      const f = e.dataTransfer?.files?.[0];
-      if (f){ EJS_gameUrl = URL.createObjectURL(f); window.EJS_run?.(); toast(`Loaded ${f.name}`); }
-    });
+    function toast(msg){
+      toastEl.textContent = msg;
+      toastEl.style.opacity = 1;
+      clearTimeout(window.__t);
+      window.__t = setTimeout(()=>toastEl.style.opacity=0,2500);
+    }
 
-    // Basic network hint
-    addEventListener('error', () => toast('Network error: check ROM path (../roms/heartgold.zip)'));
-
+    window.addEventListener('error', () => toast('⚠️ Check your ROM/BIOS URLs'));
   </script>
   <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
 </body>
