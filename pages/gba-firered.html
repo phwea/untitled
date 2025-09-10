@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FireRed (GBA)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="../assets/style.css" />
+  <style>#stage{height:100vh;background:#000}</style>
+</head>
+<body>
+  <aside class="sidebar"><div class="brand">untitled</div><nav>
+    <a class="nav-item" href="../index.html">Home</a>
+    <a class="nav-item active" href="#">FireRed (GBA)</a>
+    <a class="nav-item" href="nds-heartgold.html">HeartGold (NDS)</a>
+  </nav></aside>
+  <main class="content">
+    <div id="stage"></div>
+  </main>
+
+  <script>
+    EJS_player        = "#stage";
+    EJS_core          = "gba";
+    EJS_gameName      = "Pokemon FireRed";
+    EJS_pathtodata    = "https://cdn.emulatorjs.org/stable/data/";
+    // set this to your file or leave as placeholder:
+    EJS_gameUrl       = "../roms/firered.gba";
+    EJS_startOnLoaded = true;
+  </script>
+  <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+</body>
+</html>

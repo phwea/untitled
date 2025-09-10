@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>HeartGold (NDS)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="../assets/style.css" />
+  <style>
+    #stage{height:100vh;background:#000}
+    .hud{position:fixed;top:12px;right:16px;display:flex;gap:8px;z-index:9}
+    .btn{background:#121a28;border:1px solid #1b2941;color:#eaf0ff;padding:8px 10px;border-radius:10px;cursor:pointer;font-weight:700}
+    .btn:hover{border-color:#273a60}
+  </style>
+</head>
+<body>
+  <aside class="sidebar"><div class="brand">untitled</div><nav>
+    <a class="nav-item" href="../index.html">Home</a>
+    <a class="nav-item" href="gba-firered.html">FireRed (GBA)</a>
+    <a class="nav-item active" href="#">HeartGold (NDS)</a>
+  </nav></aside>
+
+  <main class="content">
+    <div id="stage"></div>
+    <div class="hud">
+      <button class="btn" onclick="document.documentElement.requestFullscreen?.()">Fullscreen</button>
+      <button class="btn" onclick="window.EJS_emulator?.toggleMenu?.()">Open Emulator Menu</button>
+      <button class="btn" onclick="window.EJS_saveState?.()">Quick Save</button>
+      <button class="btn" onclick="window.EJS_loadState?.()">Quick Load</button>
+      <label class="btn" style="padding:0 10px">
+        Import State<input type="file" accept=".state" hidden onchange="(f=>f&&EJS_uploadSaveState(f))(this.files[0])">
+      </label>
+    </div>
+  </main>
+
+  <script>
+    // DS core without BIOS requirement
+    EJS_player        = "#stage";
+    EJS_core          = "desmume";
+    EJS_gameName      = "Pokemon HeartGold";
+    EJS_pathtodata    = "https://cdn.emulatorjs.org/stable/data/";
+
+    // point to your zipped ROM (keeps under 100 MB for GitHub repo)
+    EJS_gameUrl       = "../roms/heartgold.zip";
+    EJS_startOnLoaded = true;
+
+    // auto-download state file with timestamp name
+    EJS_onSaveState = function (arr) {
+      const blob = arr?.[1]; if (!blob) return;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `HG_${new Date().toISOString().replace(/[:.]/g,'-')}.state`;
+      a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+    };
+
+    // drag & drop ROM override (handy for testing)
+    addEventListener('dragover', e=>e.preventDefault());
+    addEventListener('drop', e=>{
+      e.preventDefault();
+      const f = e.dataTransfer?.files?.[0];
+      if (f){ EJS_gameUrl = URL.createObjectURL(f); window.EJS_run?.(); }
+    });
+  </script>
+  <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+</body>
+</html>
