@@ -17,8 +17,8 @@
       animation:float 16s ease-in-out infinite alternate;
       content:""; pointer-events:none;
     }
-    .aurora:before{animation-delay: -8s; transform:scaleX(-1)}
-    .aurora:after{animation-delay: -4s; opacity:.7}
+    .aurora:before{animation-delay:-8s; transform:scaleX(-1)}
+    .aurora:after{animation-delay:-4s; opacity:.7}
     @keyframes float{to{transform:translate3d(20px,10px,0)}}
 
     #stage{height:100vh;background:#000;image-rendering:pixelated;outline:1px solid #101826}
@@ -65,25 +65,18 @@
   </main>
 
   <script>
-    /* ===== melonDS config ===== */
+    /* ===== EmulatorJS (DeSmuME, direct .nds from Release) ===== */
     EJS_player        = "#stage";
-    EJS_core          = "desmume";
+    EJS_core          = "desmume";                                    // DS core (no BIOS)
     EJS_gameName      = "Pokemon HeartGold";
     EJS_color         = "#0064ff";
-    EJS_pathtodata    = "https://cdn.emulatorjs.org/stable/data/";
-
-    // Your ROM + BIOS/firmware (all on GitHub raw links)
-    EJS_gameUrl = "https://raw.githubusercontent.com/phwea/untitled/main/roms/heartgold.zip";
-    EJS_biosUrl = {
-      "bios7":   "https://raw.githubusercontent.com/phwea/untitled/main/roms/biosnds7.rom",
-      "bios9":   "https://raw.githubusercontent.com/phwea/untitled/main/roms/biosnds9.rom",
-      "firmware":"https://raw.githubusercontent.com/phwea/untitled/main/roms/firmware.bin"
-    };
+    EJS_pathtodata    = "https://cdn.emulatorjs.org/stable/data/";    // ok to use CDN for loader/core
+    EJS_gameUrl       = "https://github.com/phwea/untitled/releases/download/v1.0/heartgold.nds";  // <-- your Release asset
     EJS_startOnLoaded = true;
 
-    const fsBtn = document.getElementById('fsBtn');
-    const menuBtn = document.getElementById('menuBtn');
-    const toastEl = document.getElementById('toast');
+    const fsBtn  = document.getElementById('fsBtn');
+    const menuBtn= document.getElementById('menuBtn');
+    const toastEl= document.getElementById('toast');
 
     fsBtn.onclick   = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
     menuBtn.onclick = () => window.EJS_emulator?.toggleMenu?.();
@@ -95,7 +88,8 @@
       window.__t = setTimeout(()=>toastEl.style.opacity=0,2500);
     }
 
-    window.addEventListener('error', () => toast('⚠️ Check your ROM/BIOS URLs'));
+    // helpful error hint
+    window.addEventListener('error', () => toast('⚠️ Network error – check release URL or try reload'));
   </script>
   <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
 </body>
