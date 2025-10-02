@@ -1,0 +1,418 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Pokédex • Sites Embed</title>
+<style>
+  :root{ --r:14px; --bg:#0b0f14; --panel:#0f1720; --stroke:#1c2a3a; --txt:#e8f0fe; --pri:#1a73e8 }
+  html,body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
+  .wrap{max-width:1050px;margin:18px auto;padding:0 18px}
+  .card{background:var(--panel);border:1px solid var(--stroke);border-radius:var(--r);padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  input,select,button{font:inherit}
+  input,select{background:#0c121a;color:var(--txt);border:1px solid #1e2b3b;border-radius:10px;padding:10px 12px}
+  input[type="text"]{flex:1;min-width:220px}
+  button{background:var(--pri);color:#fff;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600}
+  button:disabled{opacity:.6;cursor:not-allowed}
+  .grid{display:grid;gap:16px}
+  .grid-2{grid-template-columns:260px 1fr}
+  .imgbox{background:#0b1320;border:1px solid var(--stroke);border-radius:12px;display:flex;align-items:center;justify-content:center;padding:10px}
+  .name{font-weight:900;font-size:22px;text-transform:capitalize}
+  .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;margin-right:6px;margin-top:6px;background:#122232;border:1px solid #1e3650}
+  .subtle{opacity:.85;font-size:14px}
+  .section{margin-top:18px}
+  .msg{margin-top:10px;border-radius:10px;padding:10px 12px;font-weight:600}
+  .msg.error{background:#2b0f12;border:1px solid #5b1f26;color:#ffcdd2}
+  .msg.info{background:#0c121a;border:1px solid #1e2b3b;color:#cfe0ff}
+
+  /* stat rows (robust) */
+  .stat-row{display:flex;align-items:center;gap:10px;margin:6px 0}
+  .stat-label{width:54px;flex:0 0 54px;font-weight:700;font-size:12px;opacity:.9}
+  .bar{height:12px;background:#0d1420;border:1px solid #233449;border-radius:999px;overflow:hidden;flex:1 1 260px;min-width:180px}
+  .fill{height:100%;width:0;background:linear-gradient(90deg,var(--pri),#5aa3ff)}
+  .stat-val{width:38px;flex:0 0 38px;text-align:right;opacity:.9}
+
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:14px}
+  th,td{border-bottom:1px solid #152233;padding:8px 6px;text-align:left;vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.4px;opacity:.9}
+  .tag{font-size:12px;border:1px solid #27405f;background:#0c121a;border-radius:10px;padding:4px 8px;display:inline-block}
+  .grade{display:inline-flex;align-items:center;gap:8px;background:#0c121a;border:1px solid #27405f;border-radius:12px;padding:6px 10px;font-weight:800}
+
+  /* evolution */
+  .evo-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .evo-card{background:#0c121a;border:1px solid #1b2a3d;border-radius:12px;padding:10px;width:160px;text-align:center}
+  .evo-card img{width:96px;height:auto}
+  .evo-name{font-weight:800;text-transform:capitalize;margin-top:6px}
+  .evo-id{font-size:12px;opacity:.7}
+  .evo-arrow{display:flex;align-items:center;gap:6px}
+  .evo-req{font-size:12px;opacity:.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="row">
+      <input id="q" type="text" placeholder="Search Pokémon (name or #dex)… e.g., poliwag or 60" list="monList"/>
+      <datalist id="monList"></datalist>
+      <button id="go">Search</button>
+      <label class="subtle">Generation:
+        <select id="genSel"></select>
+      </label>
+      <label class="subtle">Game:
+        <select id="vgSel"></select>
+      </label>
+      <label class="subtle">Mode:
+        <select id="modeSel"><option value="nuz">Nuzlocke</option><option value="casual">Casual</option></select>
+      </label>
+    </div>
+    <div id="msg"></div>
+
+    <!-- header -->
+    <div id="mon" class="grid grid-2 section" style="display:none">
+      <div class="imgbox"><img id="sprite" alt="" style="max-width:220px;height:auto"></div>
+      <div>
+        <div class="name" id="name">—</div>
+        <div class="subtle" id="types"></div>
+        <div id="stats" style="margin-top:10px"></div>
+        <div class="grade" id="grade" style="margin-top:8px">Tier: —</div>
+        <div id="quickCatch" class="subtle" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <!-- evolution -->
+    <div id="evo" class="section" style="display:none">
+      <div class="subtle" style="margin-bottom:6px;">Evolution chart</div>
+      <div id="evoWrap"></div>
+    </div>
+
+    <!-- moves -->
+    <div id="movesSec" class="section" style="display:none">
+      <div class="subtle">Moves for selected game (all methods):</div>
+      <table>
+        <thead>
+          <tr><th>Move</th><th>Type</th><th>Class</th><th>Pow</th><th>Acc</th><th>PP</th><th>Lv</th><th>Method</th><th>STAB</th><th>Score</th></tr>
+        </thead>
+        <tbody id="movesBody"></tbody>
+      </table>
+      <div class="subtle" style="margin-top:8px;">Data: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a></div>
+    </div>
+
+    <!-- timeline + TM -->
+    <div class="grid section" style="grid-template-columns:1fr 1fr">
+      <div id="timelineSec" style="display:none">
+        <div class="subtle">Level-up timeline:</div>
+        <table><thead><tr><th>Lv</th><th>Move</th><th>Type</th><th>Class</th><th>Pow</th><th>Acc</th></tr></thead><tbody id="tlBody"></tbody></table>
+      </div>
+      <div id="tmSec" style="display:none">
+        <div class="subtle">TM/TR list (selected game):</div>
+        <ul id="tmList" style="margin:8px 0 0 18px;"></ul>
+      </div>
+    </div>
+
+    <!-- encounter preview -->
+    <div id="encSec" class="section" style="display:none">
+      <div class="subtle">Top wild encounter areas (preview):</div>
+      <table>
+        <thead><tr><th>Location area</th><th>Methods</th><th>Lv range</th><th>Chance</th></tr></thead>
+        <tbody id="encBody"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ---------- utils & constants ---------- */
+const $=s=>document.querySelector(s);
+const TYPE_COLORS={normal:'#A8A77A',fire:'#EE8130',water:'#6390F0',electric:'#F7D02C',grass:'#7AC74C',ice:'#96D9D6',fighting:'#C22E28',poison:'#A33EA1',ground:'#E2BF65',flying:'#A98FF3',psychic:'#F95587',bug:'#A6B91A',rock:'#B6A136',ghost:'#735797',dragon:'#6F35FC',dark:'#705746',steel:'#B7B7CE',fairy:'#D685AD'};
+function pill(t){const c=TYPE_COLORS[t]||'#334';return `<span class="pill" style="box-shadow:inset 0 0 0 999px ${c}22;border-color:${c}77">${t}</span>`;}
+function toTitle(s){return String(s||'').replace(/-/g,' ').replace(/\b\w/g,m=>m.toUpperCase());}
+function vv(x){return (x===null||x===undefined)?'':x;}
+function showMsg(kind,text){const el=$('#msg'); if(!text){el.innerHTML=''; return;} const cls=kind==='error'?'error':'info'; el.innerHTML=`<div class="msg ${cls}">${text}</div>`;}
+function statRow(label,val){const pct=Math.min(100,Math.round((val/180)*100));return `<div class="stat-row"><div class="stat-label">${label}</div><div class="bar"><div class="fill" style="width:${pct}%"></div></div><div class="stat-val">${val}</div></div>`;}
+
+const cache=new Map();
+async function jget(u, tries=2){
+  if(cache.has(u)) return cache.get(u);
+  try{
+    const r=await fetch(u,{cache:'force-cache'});
+    if(!r.ok) throw new Error(String(r.status));
+    const j=await r.json(); cache.set(u,j); return j;
+  }catch(e){
+    if(tries>0){ await new Promise(res=>setTimeout(res, 400)); return jget(u, tries-1); }
+    throw e;
+  }
+}
+
+const STAT_NAMES=['HP','ATK','DEF','SPA','SPD','SPE'];
+const TYPE_CHART={normal:{rock:.5,ghost:0,steel:.5},fire:{fire:.5,water:.5,grass:2,ice:2,bug:2,rock:.5,dragon:.5,steel:2},water:{fire:2,water:.5,grass:.5,ground:2,rock:2,dragon:.5},electric:{water:2,electric:.5,grass:.5,ground:0,flying:2,dragon:.5},grass:{fire:.5,water:2,grass:.5,poison:.5,ground:2,flying:.5,bug:.5,rock:2,dragon:.5,steel:.5},ice:{fire:.5,water:.5,grass:2,ground:2,flying:2,dragon:2,steel:.5},fighting:{normal:2,ice:2,poison:.5,flying:.5,psychic:.5,bug:.5,rock:2,ghost:0,dark:2,steel:2,fairy:.5},poison:{grass:2,poison:.5,ground:.5,rock:.5,ghost:.5,steel:0,fairy:2},ground:{fire:2,electric:2,grass:.5,poison:2,flying:0,bug:.5,rock:2,steel:2},flying:{electric:.5,grass:2,fighting:2,bug:2,rock:.5,steel:.5},psychic:{fighting:2,poison:2,psychic:.5,dark:0,steel:.5},bug:{fire:.5,grass:2,fighting:.5,poison:.5,flying:.5,psychic:2,ghost:.5,dark:2,steel:.5,fairy:.5},rock:{fire:2,ice:2,fighting:.5,ground:.5,flying:2,bug:2,steel:.5},ghost:{normal:0,psychic:2,ghost:2,dark:.5},dragon:{dragon:2,steel:.5,fairy:0},dark:{fighting:.5,psychic:2,ghost:2,dark:.5,fairy:.5},steel:{fire:.5,water:.5,electric:.5,ice:2,rock:2,fairy:2,steel:.5},fairy:{fire:.5,dragon:2,poison:.5,steel:.5,fighting:2,dark:2}};
+function learnLabel(s){const m={'level-up':'Level-up','machine':'Machine','tutor':'Tutor','egg':'Egg','light-ball-egg':'Egg'};return m[s]||toTitle(s);}
+
+/* ---- generation ordering + labels ---- */
+const GEN_ORDER=['generation-i','generation-ii','generation-iii','generation-iv','generation-v','generation-vi','generation-vii','generation-viii','generation-ix'];
+const genIndex = g => GEN_ORDER.indexOf(g);
+function prettyGen(g){ const m=String(g||'').match(/^generation-(.+)$/); return m ? 'Generation ' + m[1].toUpperCase() : toTitle(g); }
+function listGensOrdered(vgList){ const uniq=[...new Set(vgList.map(v=>v.gen))]; return uniq.sort((a,b)=>genIndex(a)-genIndex(b)); }
+
+/* ---------- version groups ---------- */
+let VERSION_GROUPS=[], VG_VERSIONS={}, MON_VG_LIST=[];
+async function bootVG(){
+  if(VERSION_GROUPS.length) return;
+  const root=await jget('https://pokeapi.co/api/v2/version-group?limit=999');
+  const full=await Promise.all(root.results.map(vg=>jget(vg.url)));
+
+  // sort by true generation order, then by id
+  full.sort((a,b)=>(genIndex(a.generation.name)-genIndex(b.generation.name)) || (a.id-b.id));
+
+  VERSION_GROUPS = full.map(x=>({name:x.name, id:x.id, gen:x.generation.name, versions:x.versions.map(v=>v.name)}));
+  VG_VERSIONS = Object.fromEntries(VERSION_GROUPS.map(vg=>[vg.name,new Set(vg.versions)]));
+
+  const gensAll = listGensOrdered(VERSION_GROUPS);
+  $('#genSel').innerHTML = gensAll.map(g=>`<option value="${g}">${prettyGen(g)}</option>`).join('');
+  $('#genSel').value = gensAll[gensAll.length-1]; // latest
+  onGenChange();
+}
+function onGenChange(){
+  const src = MON_VG_LIST.length ? MON_VG_LIST : VERSION_GROUPS;
+  const gens = listGensOrdered(src);
+  const current = $('#genSel').value || gens[gens.length-1];
+
+  // keep gens pretty & ordered even after switching
+  $('#genSel').innerHTML = gens.map(g=>`<option value="${g}">${prettyGen(g)}</option>`).join('');
+  $('#genSel').value = current;
+
+  const list=src.filter(v=>v.gen===current);
+  $('#vgSel').innerHTML=list.map(v=>`<option value="${v.name}">${toTitle(v.name)}</option>`).join('');
+  $('#vgSel').value=list[list.length-1]?.name||list[0]?.name||'';
+}
+function vgListForMon(pokemonJson){
+  const names=new Set();
+  for(const mv of (pokemonJson.moves||[])){
+    for(const det of (mv.version_group_details||[])){
+      const n=det?.version_group?.name; if(n) names.add(n);
+    }
+  }
+  return VERSION_GROUPS.filter(vg=>names.has(vg.name));
+}
+function rebuildSelectorsForMon(pokemonJson){
+  MON_VG_LIST = vgListForMon(pokemonJson);
+  if(!MON_VG_LIST.length){ MON_VG_LIST=[]; onGenChange(); return; }
+  const gens = listGensOrdered(MON_VG_LIST);
+  const want = gens[gens.length-1]; // latest this mon exists in
+  $('#genSel').innerHTML = gens.map(g=>`<option value="${g}">${prettyGen(g)}</option>`).join('');
+  $('#genSel').value = want;
+
+  const inGen = MON_VG_LIST.filter(v=>v.gen===want);
+  $('#vgSel').innerHTML = inGen.map(v=>`<option value="${v.name}">${toTitle(v.name)}</option>`).join('');
+  $('#vgSel').value = inGen[inGen.length-1]?.name || '';
+}
+
+/* ---------- state ---------- */
+let CURRENT=null, MOVES_ROWS=[], moveCache=new Map(), pokemonBasicCache=new Map();
+
+/* ---------- UI wiring ---------- */
+function setLoading(b){ $('#go').disabled=b; $('#go').textContent=b?'Loading…':'Search'; }
+$('#go').addEventListener('click', ()=> searchMon($('#q').value));
+$('#q').addEventListener('keydown', e=>{ if(e.key==='Enter') searchMon($('#q').value); });
+$('#genSel').addEventListener('change', ()=>{ onGenChange(); if(CURRENT){ refreshMoves(); gradeMon(); loadEncounterPreview(); }});
+$('#vgSel').addEventListener('change', ()=>{ if(CURRENT){ refreshMoves(); gradeMon(); loadEncounterPreview(); }});
+$('#modeSel').addEventListener('change', ()=>{ if(CURRENT){ localStorage.setItem('p_mode',$('#modeSel').value); gradeMon(); }});
+
+/* ---------- datalist (best effort) ---------- */
+(async function fillNames(){
+  try{
+    const j=await jget('https://pokeapi.co/api/v2/pokemon?limit=2000');
+    $('#monList').innerHTML = j.results.map(r=>`<option value="${r.name}">`).join('');
+  }catch(_){ /* ignore if blocked */ }
+})();
+
+/* ---------- main search ---------- */
+async function searchMon(term){
+  term=String(term||'').trim().toLowerCase(); if(!term) return;
+  showMsg(); setLoading(true);
+  localStorage.setItem('p_last', term);
+  try{
+    await bootVG();
+    const p=await jget(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(term)}`);
+    const s=await jget(`https://pokeapi.co/api/v2/pokemon-species/${p.id}`);
+    CURRENT = {
+      id:p.id, name:p.name,
+      sprite: p.sprites?.other?.['official-artwork']?.front_default || p.sprites?.front_default || '',
+      types: p.types.map(t=>t.type.name),
+      stats: Object.fromEntries(p.stats.map(x=>[x.stat.name,x.base_stat])),
+      abilities: p.abilities.map(a=>a.ability.name),
+      cap: s.capture_rate ?? 45
+    };
+    rebuildSelectorsForMon(p);
+
+    $('#sprite').src = CURRENT.sprite || '';
+    $('#name').textContent = `${toTitle(CURRENT.name)} #${String(CURRENT.id).padStart(4,'0')}`;
+    const S=CURRENT.stats;
+    $('#types').innerHTML = CURRENT.types.map(pill).join(' ');
+    $('#stats').innerHTML =
+      statRow('HP',S.hp)+statRow('ATK',S.attack)+statRow('DEF',S.defense)+
+      statRow('SPA',S['special-attack'])+statRow('SPD',S['special-defense'])+statRow('SPE',S.speed);
+    $('#mon').style.display='grid';
+    await renderEvolution(CURRENT.name);
+    await refreshMoves();
+    gradeMon();
+    loadEncounterPreview();
+    quickCatchHint();
+  }catch(e){
+    const msg = (String(e).includes('Failed to fetch')||String(e).includes('NetworkError')) ?
+      'Network blocked or offline. Your Chromebook/extension may be blocking PokéAPI.' :
+      'Not found. Try a valid name or Pokédex number.';
+    showMsg('error', msg);
+    $('#mon').style.display='none'; $('#evo').style.display='none';
+    $('#movesSec').style.display='none'; $('#timelineSec').style.display='none';
+    $('#tmSec').style.display='none'; $('#encSec').style.display='none';
+  }finally{ setLoading(false); }
+}
+
+/* ---------- evolution ---------- */
+function evoLabel(d){ if(!d) return ''; if(d.min_level) return `(Level ${d.min_level})`; if(d.item) return `(${toTitle(d.item.name)})`; if(d.held_item) return `(hold ${toTitle(d.held_item.name)})`; if(d.time_of_day) return `(${d.time_of_day})`; if(d.location) return `(${toTitle(d.location.name)})`; if(d.known_move) return `(knows ${toTitle(d.known_move.name)})`; if(d.trigger?.name==='trade') return `(Trade)`; return `(${toTitle(d.trigger?.name||'evolves')})`; }
+function chainPaths(node, path=[], acc=[]){ const me={name:node.species.name, details:path.length?(node.evolution_details?.[0]||null):null}; const next=[...path, me]; if(!node.evolves_to || node.evolves_to.length===0){ acc.push(next);} else { for(const n of node.evolves_to){ chainPaths(n,next,acc);} } return acc; }
+async function getBasic(name){ if(pokemonBasicCache.has(name)) return pokemonBasicCache.get(name); const j=await jget(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(name)}`); const o={ sprite:j.sprites?.other?.['official-artwork']?.front_default || j.sprites?.front_default || '', id:j.id, types:j.types.map(t=>t.type.name)}; pokemonBasicCache.set(name,o); return o; }
+async function renderEvolution(name){
+  try{
+    const sp=await jget(`https://pokeapi.co/api/v2/pokemon-species/${encodeURIComponent(name)}`);
+    const ch=await jget(sp.evolution_chain.url);
+    const paths=chainPaths(ch.chain);
+    const wrap=$('#evoWrap'); wrap.innerHTML='';
+    for(const path of paths){
+      const row=document.createElement('div'); row.className='evo-row';
+      for(let i=0;i<path.length;i++){
+        const step=path[i]; const info=await getBasic(step.name);
+        row.insertAdjacentHTML('beforeend', `<div class="evo-card">${info.sprite?`<img alt="${step.name}" src="${info.sprite}">`:''}<div class="evo-name">${toTitle(step.name)}</div><div class="evo-id">#${String(info.id||'').padStart(4,'0')}</div></div>`);
+        if(i<path.length-1){ row.insertAdjacentHTML('beforeend', `<div class="evo-arrow">➜ <span class="evo-req">${evoLabel(path[i+1].details)}</span></div>`); }
+      }
+      wrap.appendChild(row);
+    }
+    $('#evo').style.display = paths.length?'block':'none';
+  }catch(_){ $('#evo').style.display='none'; }
+}
+
+/* ---------- moves / TM / timeline (robust) ---------- */
+async function safeMoveDetail(name){
+  try{
+    if(moveCache.has(name)) return moveCache.get(name);
+    const d=await jget(`https://pokeapi.co/api/v2/move/${name}`);
+    moveCache.set(name,d); return d;
+  }catch(_){
+    const d={name,type:{name:''},damage_class:{name:''},power:null,accuracy:null,pp:null};
+    moveCache.set(name,d); return d;
+  }
+}
+async function refreshMoves(){
+  const vg=$('#vgSel').value; if(!CURRENT||!vg) return;
+  const base=await jget(`https://pokeapi.co/api/v2/pokemon/${CURRENT.id}`);
+  const pool=[];
+  for(const mv of base.moves||[]){
+    const name=mv.move?.name; if(!name) continue;
+    for(const det of mv.version_group_details||[]){
+      if(det?.version_group?.name!==vg) continue;
+      pool.push({name, level:det?.level_learned_at??null, method:det?.move_learn_method?.name||''});
+    }
+  }
+  const unique=[...new Set(pool.map(x=>x.name))];
+  const details=await Promise.all(unique.map(safeMoveDetail));
+  const info=Object.fromEntries(details.map(d=>[d.name,d]));
+  MOVES_ROWS = pool.map(x=>{
+    const d=info[x.name]||{};
+    const type=d?.type?.name||'';
+    const dmg=d?.damage_class?.name||'';
+    const power=Number.isFinite(d?.power)?d.power:null;
+    const acc=Number.isFinite(d?.accuracy)?d.accuracy:null;
+    const pp=Number.isFinite(d?.pp)?d.pp:null;
+    const stab=(CURRENT.types||[]).includes(type);
+    let score=0; if(Number.isFinite(power) && Number.isFinite(acc)){ score=power*(acc/100); if(stab) score*=1.2; }
+    return {name:x.name,type,dmg,power,acc,pp,level:x.level,method:x.method,stab,score};
+  });
+
+  MOVES_ROWS.sort((a,b)=>((b.score??0)-(a.score??0)));
+
+  $('#movesBody').innerHTML = MOVES_ROWS.map(r=>`<tr>
+    <td>${toTitle(r.name)}</td><td>${pill(r.type)}</td><td>${toTitle(r.dmg)}</td>
+    <td>${vv(r.power)}</td><td>${vv(r.acc)}</td><td>${vv(r.pp)}</td>
+    <td>${r.level??''}</td><td><span class="tag">${learnLabel(r.method)}</span></td>
+    <td>${r.stab?'<b>STAB</b>':''}</td><td>${Number.isFinite(r.score)?r.score.toFixed(1):''}</td>
+  </tr>`).join('');
+  $('#movesSec').style.display='block';
+
+  // timeline
+  const rows = MOVES_ROWS.filter(m=>m.method==='level-up' && m.level!=null).sort((a,b)=>a.level-b.level);
+  $('#tlBody').innerHTML = rows.map(r=>`<tr><td>${r.level}</td><td>${toTitle(r.name)}</td><td>${pill(r.type)}</td><td>${toTitle(r.dmg)}</td><td>${vv(r.power)}</td><td>${vv(r.acc)}</td></tr>`).join('') || `<tr><td colspan="6" class="subtle">No level-up data.</td></tr>`;
+  $('#timelineSec').style.display='block';
+
+  // TM list
+  const tms = MOVES_ROWS.filter(m=>m.method==='machine').sort((a,b)=>a.name.localeCompare(b.name));
+  $('#tmList').innerHTML = tms.map(m=>`<li>${toTitle(m.name)} ${pill(m.type)} <span class="subtle">(${toTitle(m.dmg)} • Pow ${vv(m.power)} • Acc ${vv(m.acc)})</span></li>`).join('') || '<li class="subtle">No machines in this game.</li>';
+  $('#tmSec').style.display='block';
+}
+
+/* ---------- playthrough grade ---------- */
+function gradeMon(){
+  const mode=$('#modeSel').value, S=CURRENT.stats;
+  const atk=S.attack||0, spa=S['special-attack']||0, def=S.defense||0, spd=S['special-defense']||0, spe=S.speed||0, hp=S.hp||0;
+  const offense=Math.max(atk,spa), bulkIdx=(hp*0.5+def+spd)/2;
+  let typeScore=0; const types=CURRENT.types||[];
+  for(const atkT of Object.keys(TYPE_CHART)){ let mult=1; for(const d of types){ mult*=(TYPE_CHART[atkT]?.[d]??1); } if(mult===0) typeScore+=2; else if(mult<=0.5&&mult>0) typeScore+=1; else if(mult>=2) typeScore -= (mult>=4?2:1); }
+  const earlyStab = MOVES_ROWS.some(m=>m.method==='level-up' && m.level!=null && m.level<=20 && m.stab && (m.power??0)>=50);
+  const recov=['recover','roost','soft-boiled','milk-drink','slack-off','moonlight','morningsun','synthesis','wish','drain-punch','giga-drain','horn-leech','leech-life','parabolic-charge','oblivion-wing','strength-sap'];
+  const hasRec=MOVES_ROWS.some(m=>recov.includes(m.name));
+  const prio=['quick-attack','aqua-jet','ice-shard','shadow-sneak','bullet-punch','mach-punch','vacuum-wave','sucker-punch','extreme-speed','first-impression','water-shuriken'];
+  const hasPrio=MOVES_ROWS.some(m=>prio.includes(m.name));
+  const setup=['swords-dance','dragon-dance','nasty-plot','calm-mind','bulk-up','quiver-dance','shell-smash','shift-gear','work-up'];
+  const setupCnt=Math.min(2, MOVES_ROWS.filter(m=>setup.includes(m.name)).length);
+  const abilityPts=(abs=>{const set=new Set(abs||[]);let pts=0;if(set.has('intimidate'))pts+=10;if(set.has('levitate'))pts+=8;if(set.has('magic-guard'))pts+=12;if(set.has('thick-fat'))pts+=8;if(set.has('huge-power')||set.has('pure-power'))pts+=25;if(set.has('speed-boost'))pts+=15;if(set.has('regenerator'))pts+=15;if(set.has('sturdy'))pts+=8;if(set.has('water-absorb')||set.has('volt-absorb')||set.has('flash-fire')||set.has('sap-sipper'))pts+=6;if(set.has('poison-heal'))pts+=18;return pts;})(CURRENT.abilities||[]);
+  const tmFlex=(()=>{const set=new Set(); for(const m of MOVES_ROWS){ if(m.method==='machine' && m.type && !types.includes(m.type)) set.add(m.type);} return Math.min(8,set.size); })();
+  const W=(mode==='nuz')?{off:0.6,spe:0.4,bulk:0.7,type:5,early:18,recover:14,prio:8,setup:6,ab:1,tm:0.7}:{off:0.8,spe:0.5,bulk:0.4,type:3,early:12,recover:6,prio:6,setup:12,ab:1,tm:0.9};
+  let score=0; score+=offense*W.off + spe*W.spe + bulkIdx*W.bulk + typeScore*W.type + (earlyStab?W.early:0) + (hasRec?W.recover:0) + (hasPrio?W.prio:0) + setupCnt*W.setup + abilityPts*W.ab + tmFlex*W.tm;
+  const grade = score>=220?'S+':score>=200?'S':score>=170?'A':score>=140?'B':score>=115?'C':'D';
+  $('#grade').textContent = `Tier: ${grade} (${mode==='nuz'?'Nuzlocke':'Casual'})`;
+}
+
+/* ---------- encounter preview (top 3) ---------- */
+async function loadEncounterPreview(){
+  try{
+    const vg=$('#vgSel').value; const vgVers=new Set((VERSION_GROUPS.find(v=>v.name===vg)?.versions)||[]);
+    const arr=await jget(`https://pokeapi.co/api/v2/pokemon/${CURRENT.name}/encounters`);
+    const rows=[];
+    for(const loc of arr){
+      let chance=0, methods=new Set(), min=999, max=0, use=false;
+      for(const vd of loc.version_details||[]){
+        if(!vgVers.has(vd.version?.name)) continue;
+        for(const d of vd.encounter_details||[]){ use=true; chance += (d.chance||0); methods.add(d.method?.name||''); if(d.min_level) min=Math.min(min,d.min_level); if(d.max_level) max=Math.max(max,d.max_level); }
+      }
+      if(use){ rows.push({name:loc.location_area.name, methods:[...methods].filter(Boolean), min:isFinite(min)?min:'?', max:max||'?', chance}); }
+    }
+    rows.sort((a,b)=>b.chance-a.chance);
+    const top=rows.slice(0,3);
+    $('#encBody').innerHTML = top.map(r=>`<tr><td>${toTitle(r.name)}</td><td>${r.methods.map(m=>`<span class="tag">${toTitle(m)}</span>`).join(' ')}</td><td>${r.min}–${r.max}</td><td>${r.chance||'—'}%</td></tr>`).join('') || `<tr><td colspan="4" class="subtle">No wild data for this game.</td></tr>`;
+    $('#encSec').style.display='block';
+  }catch(_){ $('#encSec').style.display='none'; }
+}
+
+/* ---------- quick catch (1 HP + sleep + ultra) ---------- */
+function maxHP(level, baseHP, iv=15, ev=0){ return Math.floor(((2*baseHP + iv + Math.floor(ev/4)) * level)/100) + level + 10; }
+function catchChanceGen3Plus(M,H,cap,ball,status){ if(ball===Infinity) return 100; let a=Math.floor( (((3*M - 2*H) * cap * ball) / (3*M)) * status ); if(a<=0)a=1; if(a>=255)return 100; const b=Math.floor(1048560/Math.sqrt(Math.sqrt(16711680/a))); return Math.max(0, Math.min(100, Math.pow(b/65535,4)*100)); }
+function quickCatchHint(){
+  const baseHP = CURRENT.stats.hp||50;
+  const M=maxHP(30, baseHP, 15, 0); // assume L30
+  const H=1, cap=CURRENT.cap||45, ball=2 /*Ultra*/, status=2 /*Sleep*/;
+  const p=catchChanceGen3Plus(M,H,cap,ball,status);
+  $('#quickCatch').textContent = `Quick catch hint: at 1 HP + Sleep + Ultra Ball ≈ ${p.toFixed(1)}% (Gen III+ formula).`;
+}
+
+/* ---------- boot (remember last search/mode) ---------- */
+(async function init(){
+  await bootVG();
+  const lastMode = localStorage.getItem('p_mode'); if(lastMode) $('#modeSel').value=lastMode;
+  const urlMon = new URL(location.href).searchParams.get('mon');
+  const last = urlMon || localStorage.getItem('p_last') || 'mudkip';
+  $('#q').value = last; searchMon(last);
+})();
+</script>
+</body>
+</html>
