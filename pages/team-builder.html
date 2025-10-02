@@ -1,0 +1,430 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Team Builder • Sites Embed</title>
+<style>
+  :root{ --r:14px; --bg:#0b0f14; --panel:#0f1720; --stroke:#1c2a3a; --txt:#e8f0fe; --pri:#1a73e8 }
+  html,body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
+  .wrap{max-width:1100px;margin:18px auto;padding:0 18px}
+  .card{background:var(--panel);border:1px solid var(--stroke);border-radius:var(--r);padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  input,select,button{font:inherit}
+  input,select{background:#0c121a;color:var(--txt);border:1px solid #1e2b3b;border-radius:10px;padding:10px 12px}
+  input[type="text"]{flex:1;min-width:220px}
+  button{background:var(--pri);color:#fff;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600}
+  button:disabled{opacity:.6;cursor:not-allowed}
+  .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;margin-right:6px;margin-top:6px;background:#122232;border:1px solid #1e3650}
+  .tag{font-size:12px;border:1px solid #27405f;background:#0c121a;border-radius:10px;padding:3px 8px;display:inline-block;margin:2px}
+  .subtle{opacity:.85;font-size:14px}
+  .msg{margin-top:10px;border-radius:10px;padding:10px 12px;font-weight:600}
+  .msg.error{background:#2b0f12;border:1px solid #5b1f26;color:#ffcdd2}
+  .msg.info{background:#0c121a;border:1px solid #1e2b3b;color:#cfe0ff}
+  .section{margin-top:18px}
+
+  /* team grid */
+  .grid{display:grid;gap:16px}
+  .grid-3{grid-template-columns:repeat(3,1fr)}
+  .slot{background:#0c121a;border:1px solid #1b2a3d;border-radius:14px;padding:12px;display:flex;gap:12px;min-height:144px}
+  .slot.empty{justify-content:center;align-items:center;color:#9fb3d9}
+  .sprite{width:96px;height:96px;object-fit:contain;background:#0b1320;border:1px solid #1b2a3d;border-radius:12px}
+  .name{font-weight:900;font-size:18px;text-transform:capitalize}
+  .muted{opacity:.7}
+  .mini{font-size:12px}
+  .actions{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
+  .x{background:transparent;border:1px solid #3a4e66;color:#c9d7ee;border-radius:10px;padding:6px 10px;cursor:pointer}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:14px}
+  th,td{border-bottom:1px solid #152233;padding:8px 6px;text-align:left;vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.4px;opacity:.9}
+
+  /* heatmaps */
+  .typegrid{display:grid;grid-template-columns:repeat(9,1fr);gap:8px}
+  .typecell{border:1px solid #1b2a3d;background:#0c121a;border-radius:10px;padding:6px;text-align:center}
+  .hot{background:#1a3a22;border-color:#275139}      /* good coverage / many resists */
+  .warn{background:#3a1a1a;border-color:#513131}     /* many weaknesses */
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid #2a3e57;background:#0c121a;margin:2px}
+
+  .grade{display:inline-flex;align-items:center;gap:8px;background:#0c121a;border:1px solid #27405f;border-radius:12px;padding:6px 10px;font-weight:800}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="row">
+      <input id="q" type="text" placeholder="Add Pokémon (name or #dex)… e.g., breloom or 286" list="monList"/>
+      <datalist id="monList"></datalist>
+      <button id="addBtn">Add to Team</button>
+      <label class="subtle">Generation: <select id="genSel"></select></label>
+      <label class="subtle">Game: <select id="vgSel"></select></label>
+      <label class="subtle">Mode: <select id="modeSel"><option value="nuz">Nuzlocke</option><option value="casual">Casual</option></select></label>
+      <button id="shareBtn" class="x">Copy Share Link</button>
+    </div>
+    <div id="msg"></div>
+
+    <!-- team grid -->
+    <div id="teamGrid" class="grid grid-3 section"></div>
+
+    <!-- summary -->
+    <div class="section">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div class="grade" id="teamGrade">Team Tier: —</div>
+        <div class="subtle" id="dupeNote"></div>
+      </div>
+      <div class="row" style="margin-top:10px;flex-wrap:wrap">
+        <div><span class="badge" id="rolesSummary"></span></div>
+      </div>
+    </div>
+
+    <!-- coverage -->
+    <div class="grid section" style="grid-template-columns:1fr 1fr">
+      <div>
+        <div class="subtle">Offensive coverage (STAB vs defender types)</div>
+        <div id="offGrid" class="typegrid"></div>
+      </div>
+      <div>
+        <div class="subtle">Defensive profile (team-wide counts)</div>
+        <table>
+          <thead><tr><th>Type</th><th>Weak</th><th>Resist</th><th>Immune</th></tr></thead>
+          <tbody id="defTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ----------------- utils & constants ----------------- */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const TYPE_COLORS={normal:'#A8A77A',fire:'#EE8130',water:'#6390F0',electric:'#F7D02C',grass:'#7AC74C',ice:'#96D9D6',fighting:'#C22E28',poison:'#A33EA1',ground:'#E2BF65',flying:'#A98FF3',psychic:'#F95587',bug:'#A6B91A',rock:'#B6A136',ghost:'#735797',dragon:'#6F35FC',dark:'#705746',steel:'#B7B7CE',fairy:'#D685AD'};
+const ATTACK_TYPES=Object.keys(TYPE_COLORS);
+function pill(t){const c=TYPE_COLORS[t]||'#334';return `<span class="pill" style="box-shadow:inset 0 0 0 999px ${c}22;border-color:${c}77">${t}</span>`;}
+function toTitle(s){return String(s||'').replace(/-/g,' ').replace(/\b\w/g,m=>m.toUpperCase());}
+function showMsg(kind,text){const el=$('#msg'); if(!text){el.innerHTML='';return;} el.innerHTML=`<div class="msg ${kind==='error'?'error':'info'}">${text}</div>`;}
+const cache=new Map(); async function jget(u){ if(cache.has(u)) return cache.get(u); const r=await fetch(u); if(!r.ok) throw new Error('fetch '+u); const j=await r.json(); cache.set(u,j); return j; }
+
+const TYPE_CHART={normal:{rock:.5,ghost:0,steel:.5},fire:{fire:.5,water:.5,grass:2,ice:2,bug:2,rock:.5,dragon:.5,steel:2},water:{fire:2,water:.5,grass:.5,ground:2,rock:2,dragon:.5},electric:{water:2,electric:.5,grass:.5,ground:0,flying:2,dragon:.5},grass:{fire:.5,water:2,grass:.5,poison:.5,ground:2,flying:.5,bug:.5,rock:2,dragon:.5,steel:.5},ice:{fire:.5,water:.5,grass:2,ground:2,flying:2,dragon:2,steel:.5},fighting:{normal:2,ice:2,poison:.5,flying:.5,psychic:.5,bug:.5,rock:2,ghost:0,dark:2,steel:2,fairy:.5},poison:{grass:2,poison:.5,ground:.5,rock:.5,ghost:.5,steel:0,fairy:2},ground:{fire:2,electric:2,grass:.5,poison:2,flying:0,bug:.5,rock:2,steel:2},flying:{electric:.5,grass:2,fighting:2,bug:2,rock:.5,steel:.5},psychic:{fighting:2,poison:2,psychic:.5,dark:0,steel:.5},bug:{fire:.5,grass:2,fighting:.5,poison:.5,flying:.5,psychic:2,ghost:.5,dark:2,steel:.5,fairy:.5},rock:{fire:2,ice:2,fighting:.5,ground:.5,flying:2,bug:2,steel:.5},ghost:{normal:0,psychic:2,ghost:2,dark:.5},dragon:{dragon:2,steel:.5,fairy:0},dark:{fighting:.5,psychic:2,ghost:2,dark:.5,fairy:.5},steel:{fire:.5,water:.5,electric:.5,ice:2,rock:2,fairy:2,steel:.5},fairy:{fire:.5,dragon:2,poison:.5,steel:.5,fighting:2,dark:2}};
+
+const GEN_ORDER=['generation-i','generation-ii','generation-iii','generation-iv','generation-v','generation-vi','generation-vii','generation-viii','generation-ix'];
+const genIndex=g=>GEN_ORDER.indexOf(g);
+const prettyGen=g=> (g?.startsWith('generation-')? 'Generation '+g.split('-')[1].toUpperCase():toTitle(g));
+
+/* ----------------- version groups ----------------- */
+let VERSION_GROUPS=[], VG_VERSIONS={};
+async function bootVG(){
+  if(VERSION_GROUPS.length) return;
+  const root=await jget('https://pokeapi.co/api/v2/version-group?limit=999');
+  const full=await Promise.all(root.results.map(vg=>jget(vg.url)));
+  full.sort((a,b)=>(genIndex(a.generation.name)-genIndex(b.generation.name))||(a.id-b.id));
+  VERSION_GROUPS=full.map(x=>({name:x.name,id:x.id,gen:x.generation.name,versions:x.versions.map(v=>v.name)}));
+  VG_VERSIONS=Object.fromEntries(VERSION_GROUPS.map(vg=>[vg.name,new Set(vg.versions)]));
+  const gens=[...new Set(VERSION_GROUPS.map(v=>v.gen))].sort((a,b)=>genIndex(a)-genIndex(b));
+  $('#genSel').innerHTML=gens.map(g=>`<option value="${g}">${prettyGen(g)}</option>`).join('');
+  $('#genSel').value=gens[gens.length-1];
+  onGenChange();
+}
+function onGenChange(){
+  const g=$('#genSel').value;
+  const vgs=VERSION_GROUPS.filter(v=>v.gen===g);
+  $('#vgSel').innerHTML=vgs.map(v=>`<option value="${v.name}">${toTitle(v.name)}</option>`).join('');
+  $('#vgSel').value=vgs[vgs.length-1]?.name||vgs[0]?.name||'';
+  recomputeAll();
+}
+
+/* ----------------- team state ----------------- */
+const TEAM=[null,null,null,null,null,null]; // each: {id,name,types,stats,abilities,sprite,roles,gradeScore,grade}
+function emptyIndex(){return TEAM.findIndex(x=>!x);}
+function save(){ const names=TEAM.map(x=>x?.name||'').filter(Boolean); localStorage.setItem('tb_team', JSON.stringify({vg:$('#vgSel').value,gen:$('#genSel').value,mode:$('#modeSel').value,team:names})); }
+async function loadFromStorage(){
+  try{
+    const raw=localStorage.getItem('tb_team'); if(!raw) return;
+    const s=JSON.parse(raw||'{}');
+    if(s.gen && GEN_ORDER.includes(s.gen)) $('#genSel').value=s.gen;
+    onGenChange();
+    if(s.vg) $('#vgSel').value=s.vg;
+    if(s.mode) $('#modeSel').value=s.mode;
+    if(Array.isArray(s.team)) for(const n of s.team) await addMon(n);
+  }catch(_){}
+}
+
+function shareLink(){
+  const names=TEAM.map(x=>x?.name).filter(Boolean);
+  const url=new URL(location.href); url.searchParams.set('team', names.join(','));
+  url.searchParams.set('gen',$('#genSel').value); url.searchParams.set('vg',$('#vgSel').value);
+  navigator.clipboard.writeText(url.toString()).then(()=>showMsg('info','Share link copied!')).catch(()=>showMsg('info','Link: '+url.toString()));
+}
+
+/* ----------------- UI wiring ----------------- */
+$('#addBtn').addEventListener('click', async ()=>{ const t=$('#q').value.trim(); if(!t) return; await addMon(t); $('#q').value=''; });
+$('#q').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#addBtn').click(); });
+$('#genSel').addEventListener('change', onGenChange);
+$('#vgSel').addEventListener('change', ()=>{ recomputeAll(); save(); });
+$('#modeSel').addEventListener('change', ()=>{ recomputeAll(); save(); });
+$('#shareBtn').addEventListener('click', shareLink);
+
+/* names datalist */
+(async function fillNames(){ try{ const j=await jget('https://pokeapi.co/api/v2/pokemon?limit=2000'); $('#monList').innerHTML=j.results.map(r=>`<option value="${r.name}">`).join(''); }catch(_){}})();
+
+/* ----------------- fetch + features ----------------- */
+async function getPokemonBasic(nameOrId){
+  const j=await jget(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(nameOrId)}`);
+  return {
+    id:j.id, name:j.name,
+    sprite:j.sprites?.other?.['official-artwork']?.front_default || j.sprites?.front_default || '',
+    types:j.types.map(t=>t.type.name),
+    stats:Object.fromEntries(j.stats.map(x=>[x.stat.name,x.base_stat])),
+    abilities:j.abilities.map(a=>a.ability.name),
+    moves:j.moves
+  };
+}
+/* quick features only (cheap): check presence of certain moves in chosen version-group */
+const PRIORITY_SET=new Set(['quick-attack','aqua-jet','ice-shard','shadow-sneak','bullet-punch','mach-punch','vacuum-wave','sucker-punch','extreme-speed','first-impression','water-shuriken']);
+const RECOVERY_SET=new Set(['recover','roost','soft-boiled','milk-drink','slack-off','moonlight','morning-sun','synthesis','wish','drain-punch','giga-drain','horn-leech','leech-life','parabolic-charge','oblivion-wing','strength-sap']);
+const SETUP_SET=new Set(['swords-dance','dragon-dance','nasty-plot','calm-mind','bulk-up','quiver-dance','shell-smash','shift-gear','work-up']);
+async function detectMoveFlags(mon, vg){
+  const inVG = (det)=>det?.version_group?.name===vg;
+  const names=new Set();
+  for(const m of mon.moves||[]){
+    for(const d of m.version_group_details||[]){
+      if(!inVG(d)) continue;
+      names.add(m.move?.name);
+    }
+  }
+  const hasPrio=[...names].some(n=>PRIORITY_SET.has(n));
+  const hasRec=[...names].some(n=>RECOVERY_SET.has(n));
+  const setupCnt=[...names].filter(n=>SETUP_SET.has(n)).length;
+  // Early STAB check: look at level-up STAB moves <= 20 and fetch power
+  const early = [];
+  for(const m of mon.moves||[]){
+    const typeGuess=null;
+    for(const d of m.version_group_details||[]){
+      if(!inVG(d)) continue;
+      if(d.move_learn_method?.name!=='level-up') continue;
+      if((d.level_learned_at||999) <= 20) early.push(m.move.name);
+    }
+  }
+  let earlyStab=false;
+  // check only first 6 early moves to keep it light
+  for(const nm of early.slice(0,6)){
+    try{
+      const mv=await jget(`https://pokeapi.co/api/v2/move/${nm}`);
+      if(mon.types.includes(mv.type?.name) && (mv.power||0) >= 50){ earlyStab=true; break; }
+    }catch(_){}
+  }
+  return {hasPrio,hasRec,setupCnt:Math.min(2,setupCnt),earlyStab};
+}
+
+/* ----------------- grading ----------------- */
+function scoreMon(mon, flags, mode){
+  const S=mon.stats||{}; const types=mon.types||[];
+  const atk=S.attack||0, spa=S['special-attack']||0, def=S.defense||0, spd=S['special-defense']||0, spe=S.speed||0, hp=S.hp||0;
+  const offense=Math.max(atk,spa), bulkIdx=(hp*0.5+def+spd)/2;
+
+  // typing score
+  let typeScore=0;
+  for(const atkT of Object.keys(TYPE_CHART)){ let mult=1; for(const d of types){ mult*=(TYPE_CHART[atkT]?.[d]??1); }
+    if(mult===0) typeScore+=2; else if(mult<=0.5&&mult>0) typeScore+=1; else if(mult>=2) typeScore -= (mult>=4?2:1);
+  }
+
+  // ability points
+  const set=new Set((mon.abilities||[]).map(a=>String(a)));
+  let abilityPts=0;
+  if(set.has('intimidate'))abilityPts+=10;
+  if(set.has('levitate'))abilityPts+=8;
+  if(set.has('magic-guard'))abilityPts+=12;
+  if(set.has('thick-fat'))abilityPts+=8;
+  if(set.has('huge-power')||set.has('pure-power'))abilityPts+=25;
+  if(set.has('speed-boost'))abilityPts+=15;
+  if(set.has('regenerator'))abilityPts+=15;
+  if(set.has('sturdy'))abilityPts+=8;
+  if(set.has('water-absorb')||set.has('volt-absorb')||set.has('flash-fire')||set.has('sap-sipper'))abilityPts+=6;
+  if(set.has('poison-heal'))abilityPts+=18;
+
+  const W=(mode==='nuz')?{off:0.6,spe:0.4,bulk:0.7,type:5,early:18,recover:14,prio:8,setup:6,ab:1,tm:0}:{off:0.8,spe:0.5,bulk:0.4,type:3,early:12,recover:6,prio:6,setup:12,ab:1,tm:0};
+  let score=0; score += offense*W.off + spe*W.spe + bulkIdx*W.bulk + typeScore*W.type
+          + (flags.earlyStab?W.early:0) + (flags.hasRec?W.recover:0) + (flags.hasPrio?W.prio:0) + flags.setupCnt*W.setup + abilityPts*W.ab;
+
+  const grade = score>=220?'S+':score>=200?'S':score>=170?'A':score>=140?'B':score>=115?'C':'D';
+  return {score,grade};
+}
+
+/* ----------------- team analytics ----------------- */
+function offensiveCoverage(team){
+  // count how many mons hit each defender type super effectively with STAB
+  const counts=Object.fromEntries(ATTACK_TYPES.map(t=>[t,0]));
+  for(const mon of team){ if(!mon) continue; for(const atk of mon.types){ for(const def of ATTACK_TYPES){ const mult=TYPE_CHART[atk]?.[def]??1; if(mult>=2) counts[def]++; } } }
+  return counts;
+}
+function defensiveProfile(team){
+  // for each attacking type, count weaknesses/resists/immunities across the team
+  const out={};
+  for(const atk of ATTACK_TYPES){
+    let weak=0,res=0,imm=0;
+    for(const mon of team){ if(!mon) continue; let mult=1; for(const d of mon.types){ mult*= (TYPE_CHART[atk]?.[d]??1); }
+      if(mult===0) imm++; else if(mult>=2) weak++; else if(mult<=0.5) res++;
+    }
+    out[atk]={weak,res,imm};
+  }
+  return out;
+}
+function roleTags(mon,flags){
+  const tags=[];
+  const S=mon.stats||{}; const spd=S.speed||0; const bulk=(S.hp*0.5 + S.defense + S['special-defense'])/2;
+  if(spd>=100) tags.push('Fast');
+  if(bulk>=140) tags.push('Bulky');
+  if(mon.types.includes('flying') || (mon.abilities||[]).includes('levitate')) tags.push('Ground-immune');
+  if(flags.hasPrio) tags.push('Priority');
+  if(flags.hasRec) tags.push('Recovery');
+  if(flags.setupCnt>0) tags.push('Setup');
+  return tags;
+}
+function teamSynergyAdjust(team, mode){
+  // bonuses for coverage + safety, penalties for stacked weaknesses & duplicate types
+  const off=offensiveCoverage(team);
+  const def=defensiveProfile(team);
+
+  const coverageTypes = Object.values(off).filter(c=>c>0).length; // how many types you can hit SE with STAB
+  const coverageBonus = coverageTypes * 1.5;
+
+  let stackPenalty=0;
+  for(const [t,rows] of Object.entries(def)){
+    if(rows.weak>=3 && rows.res+rows.imm===0) stackPenalty += 6; // dangerous stack
+  }
+
+  // duplicate primary type penalty
+  const prim = team.map(m=>m?.types?.[0]).filter(Boolean);
+  const dupes = prim.length - new Set(prim).size;
+  const dupePenalty = Math.max(0,dupes)*3;
+
+  // speed control: at least one fast or priority
+  const speeders = team.filter(m=>m?.roles?.includes('Fast')).length;
+  const prios = team.filter(m=>m?.roles?.includes('Priority')).length;
+  const speedBonus = (speeders>0?4:0) + (prios>0?3:0);
+
+  const modeScale = (mode==='nuz')?1.0:1.0;
+  return modeScale*(coverageBonus + speedBonus - stackPenalty - dupePenalty);
+}
+function teamTierText(score){
+  return score>=220?'S+':score>=200?'S':score>=170?'A':score>=140?'B':score>=115?'C':'D';
+}
+
+/* ----------------- rendering ----------------- */
+function renderTeam(){
+  const grid=$('#teamGrid'); grid.innerHTML='';
+  for(let i=0;i<6;i++){
+    const m=TEAM[i];
+    const div=document.createElement('div');
+    div.className='slot'+(m?'':' empty');
+    if(!m){
+      div.innerHTML=`<div class="mini">Slot ${i+1} • Empty</div>`;
+    }else{
+      div.innerHTML=`
+        <img class="sprite" src="${m.sprite||''}" alt="">
+        <div style="flex:1">
+          <div class="name">${toTitle(m.name)} <span class="mini muted">#${String(m.id).padStart(4,'0')}</span></div>
+          <div class="mini">${m.types.map(pill).join(' ')}</div>
+          <div class="mini" style="margin-top:6px;">
+            <span class="badge">Tier ${m.grade}</span>
+            ${m.roles.map(r=>`<span class="badge">${r}</span>`).join('')}
+          </div>
+          <div class="actions">
+            <button class="x" data-replace="${i}">Replace</button>
+            <button class="x" data-remove="${i}">Remove</button>
+          </div>
+        </div>`;
+    }
+    grid.appendChild(div);
+  }
+  // hook buttons
+  $$('button[data-remove]').forEach(b=>b.onclick=()=>{ TEAM[Number(b.dataset.remove)]=null; recomputeAll(); save(); });
+  $$('button[data-replace]').forEach(b=>b.onclick=()=>{ const idx=Number(b.dataset.replace); const val=prompt('Replace with (name or #dex):'); if(val) addMon(val, idx); });
+}
+
+function renderAnalytics(){
+  const team=TEAM.filter(Boolean);
+  // duplicate note
+  const prim = team.map(m=>m.types[0]);
+  const dupes = prim.length - new Set(prim).size;
+  $('#dupeNote').textContent = dupes>0 ? `Duplicate primary types: ${dupes}` : 'Types diversified';
+
+  // roles summary
+  const roleCounts={};
+  for(const m of team){ for(const r of m.roles) roleCounts[r]=(roleCounts[r]||0)+1; }
+  $('#rolesSummary').innerHTML = Object.keys(roleCounts).length ? Object.entries(roleCounts).map(([k,v])=>`${k}×${v}`).join(' • ') : '—';
+
+  // offense grid
+  const off=offensiveCoverage(TEAM);
+  const offGrid=$('#offGrid'); offGrid.innerHTML='';
+  for(const t of ATTACK_TYPES){
+    const c=off[t]||0; const hot=c>=3;
+    offGrid.insertAdjacentHTML('beforeend', `<div class="typecell ${hot?'hot':''}"><div class="mini" style="margin-bottom:4px">${toTitle(t)}</div><div style="font-weight:800">${c}</div></div>`);
+  }
+
+  // defense table
+  const def=defensiveProfile(TEAM);
+  $('#defTable').innerHTML = ATTACK_TYPES.map(t=>{
+    const r=def[t]||{weak:0,res:0,imm:0}; const warn=r.weak>=3 && r.res+r.imm===0;
+    return `<tr class="${warn?'warn':''}"><td>${toTitle(t)}</td><td>${r.weak}</td><td>${r.res}</td><td>${r.imm}</td></tr>`;
+  }).join('');
+}
+
+function renderTeamGrade(){
+  const mode=$('#modeSel').value;
+  let base=0, count=0;
+  for(const m of TEAM){ if(!m) continue; base += m.gradeScore; count++; }
+  const avg = count? base/count : 0;
+  const synergy = teamSynergyAdjust(TEAM, mode);
+  const total = avg + synergy;
+  $('#teamGrade').textContent = `Team Tier: ${teamTierText(total)}  (score ${total.toFixed(1)})`;
+}
+
+/* recompute everything */
+function recomputeAll(){ renderTeam(); renderAnalytics(); renderTeamGrade(); }
+
+/* ----------------- add/remove ----------------- */
+async function addMon(term, fixedIndex=null){
+  showMsg();
+  try{
+    await bootVG();
+    const vg=$('#vgSel').value;
+    const base=await getPokemonBasic(term);
+    // quick guard: if mon has no entries for this VG, warn but still allow
+    const hasVG=base.moves?.some(m=>m.version_group_details?.some(d=>d.version_group?.name===vg));
+    if(!hasVG){ showMsg('info', `${toTitle(base.name)} has no move data in ${toTitle(vg)} — added anyway (tier may be approximate).`); }
+
+    const flags=await detectMoveFlags(base, vg);
+    const {score,grade} = scoreMon(base, flags, $('#modeSel').value);
+    const roles=roleTags(base, flags);
+
+    const pkg={...base, roles, gradeScore:score, grade};
+    const idx = (fixedIndex!==null)? fixedIndex : emptyIndex();
+    if(idx===-1){ showMsg('error','Team is full. Remove a Pokémon first.'); return; }
+    TEAM[idx]=pkg;
+    recomputeAll(); save();
+  }catch(e){
+    const msg = (String(e).includes('Failed to fetch')||String(e).includes('NetworkError')) ?
+      'Network blocked or offline. Your Chromebook/extension may be blocking PokéAPI.' :
+      'Pokémon not found.';
+    showMsg('error', msg);
+  }
+}
+
+/* ----------------- init ----------------- */
+(async function init(){
+  await bootVG();
+  // restore
+  await loadFromStorage();
+
+  // URL import (?team=... or ?add=...)
+  const u=new URL(location.href);
+  const list=(u.searchParams.get('team')||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const addOne=u.searchParams.get('add');
+  if(list.length){ for(const n of list) await addMon(n); }
+  else if(addOne){ await addMon(addOne); }
+})();
+</script>
+</body>
+</html>
