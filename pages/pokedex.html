@@ -410,7 +410,7 @@ function quickCatchHint(){
   await bootVG();
   const lastMode = localStorage.getItem('p_mode'); if(lastMode) $('#modeSel').value=lastMode;
   const urlMon = new URL(location.href).searchParams.get('mon');
-  const last = urlMon || localStorage.getItem('p_last') || 'mudkip';
+  const last = urlMon || localStorage.getItem('p_last') || 'bulbasaur';
   $('#q').value = last; searchMon(last);
 })();
 </script>
